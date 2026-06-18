@@ -3,5 +3,6 @@
 # Example: requests==2.28.0
 
 # Development Dependencies
-streamlit
-git+https://github.com/streamlit/gsheets-connection.git
+streamlit==1.35.0
+st-gsheets-connection==0.0.3
+pandas
