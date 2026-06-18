@@ -26,7 +26,7 @@ try:
         # 3. Create a dictionary map -> {"Product (150g)": 100.0}
         price_dict = dict(zip(df_products["Display_Name"], df_products["Clean_Price"]))
     else:
-    price_dict = {"No Products Found": 0.0}
+        price_dict = {"No Products Found": 0.0}
     ws_expenses = sh.worksheet("Expenses")
     ws_payments = sh.worksheet("Payments")
     
@@ -126,7 +126,7 @@ with tab2:
                 ws_orders.append_row(new_row)
                 st.success(f"Order {new_id} saved!")
                 st.rerun()
-                
+
     elif entry_type == "💳 Payment Received":
         with st.form("payment_form", clear_on_submit=True):
             st.subheader("Log a Payment")
