@@ -37,7 +37,8 @@ try:
     df_payments = pd.DataFrame(ws_payments.get_all_records())
 
 except Exception as e:
-    st.error("❌ Database Connection Failed. Check your Sheet tabs and secrets.")
+    st.error("❌ Database Connection Failed. Here is the exact reason:")
+    st.exception(e) # This will print the raw Python error to the screen
     st.stop()
 
 # Clean data (ensure numeric columns are actually numbers)
