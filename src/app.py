@@ -15,18 +15,6 @@ try:
     # Load all sheets
     ws_orders = sh.worksheet("Orders")
     ws_products = sh.worksheet("Products")
-    # Clean product data for automatic pricing
-    if not df_products.empty:
-        # 1. Create the exact dropdown label: "Product Name (Weight)"
-        df_products["Display_Name"] = df_products["Product_Name"].astype(str) + " (" + df_products["Weight"].astype(str) + ")"
-        
-        # 2. Strip '₹' and spaces, convert to a mathable float
-        df_products["Clean_Price"] = df_products["Price"].replace(r'[₹,\s]', '', regex=True).astype(float)
-        
-        # 3. Create a dictionary map -> {"Product (150g)": 100.0}
-        price_dict = dict(zip(df_products["Display_Name"], df_products["Clean_Price"]))
-    else:
-        price_dict = {"No Products Found": 0.0}
     ws_expenses = sh.worksheet("Expenses")
     ws_payments = sh.worksheet("Payments")
     
@@ -38,7 +26,7 @@ try:
 
 except Exception as e:
     st.error("❌ Database Connection Failed. Here is the exact reason:")
-    st.exception(e) # This will print the raw Python error to the screen
+    st.exception(e)
     st.stop()
 
 # Clean data (ensure numeric columns are actually numbers)
@@ -46,6 +34,19 @@ for df, col in [(df_orders, 'Order_Total'), (df_orders, 'Quantity'),
                 (df_expenses, 'Amount'), (df_payments, 'Amount')]:
     if col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+# --- PRICE DICTIONARY LOGIC MUST GO HERE ---
+if not df_products.empty:
+    # Create the exact dropdown label: "Product Name (Weight)"
+    df_products["Display_Name"] = df_products["Product_Name"].astype(str) + " (" + df_products["Weight"].astype(str) + ")"
+    
+    # Strip '₹' and spaces, convert to a mathable float
+    df_products["Clean_Price"] = df_products["Price"].replace(r'[₹,\s]', '', regex=True).astype(float)
+    
+    # Create a dictionary map
+    price_dict = dict(zip(df_products["Display_Name"], df_products["Clean_Price"]))
+else:
+    price_dict = {"No Products Found": 0.0}
 
 # --- 2. LAYOUT: TABS ---
 tab1, tab2, tab3 = st.tabs(["📈 Dashboard", "➕ Data Entry", "🗄️ Database"])
