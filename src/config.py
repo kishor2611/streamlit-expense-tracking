@@ -4,8 +4,8 @@ Centralizes all app-wide settings, categories, and styling.
 """
 
 # ─── Page Configuration ───────────────────────────────────────────
-PAGE_TITLE = "📊 Small Biz Analytics & Tracker"
-PAGE_ICON = "📊"
+PAGE_TITLE = "🍛 Mane Ruchi — Business Tracker"
+PAGE_ICON = "🍛"
 LAYOUT = "wide"
 
 # ─── Google Sheets Worksheet Names ────────────────────────────────
@@ -181,6 +181,20 @@ CUSTOM_CSS = """
     }
     section[data-testid="stSidebar"] .stMarkdown {
         color: #E2E8F0;
+    }
+    /* Force sidebar metric text to be visible on dark bg */
+    section[data-testid="stSidebar"] [data-testid="stMetric"] {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.10);
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetric"] label {
+        color: #94A3B8 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #F1F5F9 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetric"] [data-testid="stMetricDelta"] {
+        color: #94A3B8 !important;
     }
 
     /* ── Status badges ── */

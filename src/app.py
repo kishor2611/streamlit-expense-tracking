@@ -280,9 +280,15 @@ with tab2:
             if df_orders.empty:
                 st.info("No orders to delete.")
             else:
-                order_ids = df_orders["Order_ID"].tolist()
-                order_ids.reverse()
-                sel_id = st.selectbox("Select Order", order_ids, key="del_order_select")
+                # Build descriptive labels: "ORD-100 | Client Name | Product"
+                order_labels = []
+                for _, row in df_orders.iterrows():
+                    label = f"{row['Order_ID']} | {row['Client_Name']} | {row['Product']}"
+                    order_labels.append(label)
+                order_labels.reverse()
+                sel_label = st.selectbox("Select Order", order_labels, key="del_order_select")
+                sel_id = sel_label.split(" | ")[0]  # Extract the Order_ID
+
                 row_data = df_orders[df_orders["Order_ID"] == sel_id].iloc[0]
                 sheet_row = df_orders[df_orders["Order_ID"] == sel_id].index[0] + 2
 

@@ -34,8 +34,8 @@ def render_sidebar(df_orders, df_payments, df_expenses):
     bool
         ``True`` if the *🔄 Refresh Data* button was clicked.
     """
-    st.sidebar.markdown("# 📊 Biz Tracker")
-    st.sidebar.markdown("*Small Business Analytics*")
+    st.sidebar.markdown("# 🍛 Mane Ruchi")
+    st.sidebar.markdown("*ಮನೆ ರುಚಿ — Homemade Goodness*")
     st.sidebar.markdown("---")
 
     # --- Quick Stats ---
