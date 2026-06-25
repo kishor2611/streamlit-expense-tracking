@@ -311,9 +311,22 @@ with tab2:
             if df_payments.empty:
                 st.info("No payments to delete.")
             else:
-                pay_ids = df_payments["Payment_ID"].tolist()
-                pay_ids.reverse()
-                sel_id = st.selectbox("Select Payment", pay_ids, key="del_pay_select")
+                pay_labels = []
+                for _, row in df_payments.iterrows():
+                    pay_id = row["Payment_ID"]
+                    order_id = row.get("Order_ID", row.get("Order_Ref", "N/A"))
+                    client_name = "Unknown Client"
+                    product = "Unknown Product"
+                    if not df_orders.empty and order_id != "N/A":
+                        match = df_orders[df_orders["Order_ID"] == order_id]
+                        if not match.empty:
+                            client_name = match.iloc[0].get("Client_Name", "Unknown Client")
+                            product = match.iloc[0].get("Product", "Unknown Product")
+                    label = f"{pay_id} | {order_id} | {client_name} | {product}"
+                    pay_labels.append(label)
+                pay_labels.reverse()
+                sel_label = st.selectbox("Select Payment", pay_labels, key="del_pay_select")
+                sel_id = sel_label.split(" | ")[0]
                 row_data = df_payments[df_payments["Payment_ID"] == sel_id].iloc[0]
                 sheet_row = df_payments[df_payments["Payment_ID"] == sel_id].index[0] + 2
 
@@ -335,17 +348,25 @@ with tab2:
             if df_expenses.empty:
                 st.info("No expenses to delete.")
             else:
-                exp_ids = df_expenses["Expense_ID"].tolist()
-                exp_ids.reverse()
-                sel_id = st.selectbox("Select Expense", exp_ids, key="del_exp_select")
+                exp_labels = []
+                for _, row in df_expenses.iterrows():
+                    exp_id = row["Expense_ID"]
+                    cat = row.get("Category", "N/A")
+                    item = row.get("Item", "N/A")
+                    amt = row.get("Amount", 0.0)
+                    label = f"{exp_id} | {cat} | {item} | ₹{amt:,.2f}"
+                    exp_labels.append(label)
+                exp_labels.reverse()
+                sel_label = st.selectbox("Select Expense", exp_labels, key="del_exp_select")
+                sel_id = sel_label.split(" | ")[0]
                 row_data = df_expenses[df_expenses["Expense_ID"] == sel_id].iloc[0]
                 sheet_row = df_expenses[df_expenses["Expense_ID"] == sel_id].index[0] + 2
 
                 with st.expander("📋 Expense Details", expanded=True):
                     det_c1, det_c2, det_c3 = st.columns(3)
-                    det_c1.write(f"**Category:** {row_data['Category']}")
-                    det_c2.write(f"**Item:** {row_data['Item']}")
-                    det_c3.write(f"**Amount:** ₹{row_data['Amount']:,.2f}")
+                    det_c1.write(f"**Category:** {row_data.get('Category', 'N/A')}")
+                    det_c2.write(f"**Item:** {row_data.get('Item', 'N/A')}")
+                    det_c3.write(f"**Amount:** ₹{row_data.get('Amount', 0.0):,.2f}")
 
                 st.warning("⚠️ This action is **permanent** and cannot be undone.")
                 if st.button("🗑️ Confirm Delete Expense", key="confirm_del_exp"):

@@ -179,8 +179,17 @@ CUSTOM_CSS = """
     section[data-testid="stSidebar"] {
         background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);
     }
-    section[data-testid="stSidebar"] .stMarkdown {
-        color: #E2E8F0;
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5,
+    section[data-testid="stSidebar"] h6,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] .stMarkdown p,
+    section[data-testid="stSidebar"] .stMarkdown span {
+        color: #F1F5F9 !important;
     }
     /* Force sidebar metric text to be visible on dark bg */
     section[data-testid="stSidebar"] [data-testid="stMetric"] {
