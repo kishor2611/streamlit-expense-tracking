@@ -105,6 +105,12 @@ def load_all_data(_worksheets):
     if "Amount" in df_payments.columns:
         df_payments["Amount"] = pd.to_numeric(df_payments["Amount"], errors="coerce").fillna(0)
 
+    # Normalize payment column names (sheets may use different header names)
+    payment_renames = {"Payment_Source": "Source", "Mode": "Source", "Payment_Mode": "Source"}
+    for old_name, new_name in payment_renames.items():
+        if old_name in df_payments.columns and new_name not in df_payments.columns:
+            df_payments.rename(columns={old_name: new_name}, inplace=True)
+
     return df_orders, df_products, df_expenses, df_payments
 
 

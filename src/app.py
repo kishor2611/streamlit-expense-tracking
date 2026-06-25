@@ -319,9 +319,9 @@ with tab2:
 
                 with st.expander("📋 Payment Details", expanded=True):
                     det_c1, det_c2, det_c3 = st.columns(3)
-                    det_c1.write(f"**Order Ref:** {row_data['Order_ID']}")
-                    det_c2.write(f"**Amount:** ₹{row_data['Amount']:,.2f}")
-                    det_c3.write(f"**Source:** {row_data['Source']}")
+                    det_c1.write(f"**Order Ref:** {row_data.get('Order_ID', row_data.get('Order_Ref', 'N/A'))}")
+                    det_c2.write(f"**Amount:** ₹{row_data.get('Amount', 0):,.2f}")
+                    det_c3.write(f"**Source:** {row_data.get('Source', row_data.get('Payment_Source', row_data.get('Mode', 'N/A')))}")
 
                 st.warning("⚠️ This action is **permanent** and cannot be undone.")
                 if st.button("🗑️ Confirm Delete Payment", key="confirm_del_pay"):
