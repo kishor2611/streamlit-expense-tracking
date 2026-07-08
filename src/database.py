@@ -230,7 +230,7 @@ def delete_row(ws, sheet_row_index):
         ws (gspread.Worksheet): Any worksheet object.
         sheet_row_index (int): 1-indexed row number to delete.
     """
-    ws.delete_rows(sheet_row_index)
+    ws.delete_rows(int(sheet_row_index))
 
 
 def add_payment(ws, payment_id, date_str, order_ref, amount, source):
