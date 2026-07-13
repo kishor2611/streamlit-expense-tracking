@@ -34,8 +34,14 @@ def render_sidebar(df_orders, df_payments, df_expenses):
     bool
         ``True`` if the *🔄 Refresh Data* button was clicked.
     """
-    st.sidebar.markdown("# 🍛 Mane Ruchi")
-    st.sidebar.markdown("*ಮನೆ ರುಚಿ — Homemade Goodness*")
+    import os
+    # Try to load and show the logo image, otherwise fallback to text
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "Image", "Ishira_logo.png")
+    if os.path.exists(logo_path):
+        st.sidebar.image(logo_path, use_column_width=True)
+    else:
+        st.sidebar.markdown("# 🍛 House of Ishira")
+    st.sidebar.markdown("<div style='text-align: center; font-style: italic; font-size: 0.9rem; color: #D4C2AD; margin-top: -10px; margin-bottom: 10px;'>Authentic Taste, Made with Love</div>", unsafe_allow_html=True)
     st.sidebar.markdown("---")
 
     # --- Quick Stats ---
@@ -201,7 +207,7 @@ def render_top_clients(df_orders, n=5):
             "Total_Orders": st.column_config.NumberColumn("Total Orders"),
             "Total_Value": st.column_config.NumberColumn(
                 "Total Value",
-                format="₹%,.2f",
+                format="₹ %.2f",
             ),
         },
     )
@@ -231,43 +237,70 @@ def render_date_filter(key_prefix="dashboard"):
     """
     sk_start = f"{key_prefix}_start_date"
     sk_end = f"{key_prefix}_end_date"
+    q_key = f"{key_prefix}_quick_select"
 
-    # Initialise session-state defaults (All Time)
+    # Initialise session-state defaults
     if sk_start not in st.session_state:
         st.session_state[sk_start] = date(2020, 1, 1)
     if sk_end not in st.session_state:
         st.session_state[sk_end] = date.today()
+    if q_key not in st.session_state:
+        st.session_state[q_key] = "All Time"
 
-    btn_cols = st.columns([1, 1, 1, 1, 2, 2])
+    # Synchronize quick select state with date values
+    today = date.today()
+    curr_start = st.session_state[sk_start]
+    curr_end = st.session_state[sk_end]
 
-    with btn_cols[0]:
-        if st.button("This Month", key=f"{key_prefix}_btn_month"):
-            today = date.today()
-            st.session_state[sk_start] = today.replace(day=1)
-            st.session_state[sk_end] = today
+    if curr_start == today.replace(day=1) and curr_end == today:
+        preset = "This Month"
+    elif curr_start == (today - timedelta(days=30)) and curr_end == today:
+        preset = "Last 30 Days"
+    elif curr_start == today.replace(month=1, day=1) and curr_end == today:
+        preset = "This Year"
+    elif curr_start == date(2020, 1, 1) and curr_end == today:
+        preset = "All Time"
+    else:
+        preset = "Custom"
 
-    with btn_cols[1]:
-        if st.button("Last 30 Days", key=f"{key_prefix}_btn_30d"):
-            st.session_state[sk_start] = date.today() - timedelta(days=30)
-            st.session_state[sk_end] = date.today()
+    st.session_state[q_key] = preset
 
-    with btn_cols[2]:
-        if st.button("This Year", key=f"{key_prefix}_btn_year"):
-            st.session_state[sk_start] = date.today().replace(month=1, day=1)
-            st.session_state[sk_end] = date.today()
-
-    with btn_cols[3]:
-        if st.button("All Time", key=f"{key_prefix}_btn_all"):
+    # Define callback when dropdown changes
+    def on_quick_select_change():
+        selected = st.session_state[q_key]
+        today_val = date.today()
+        if selected == "This Month":
+            st.session_state[sk_start] = today_val.replace(day=1)
+            st.session_state[sk_end] = today_val
+        elif selected == "Last 30 Days":
+            st.session_state[sk_start] = today_val - timedelta(days=30)
+            st.session_state[sk_end] = today_val
+        elif selected == "This Year":
+            st.session_state[sk_start] = today_val.replace(month=1, day=1)
+            st.session_state[sk_end] = today_val
+        elif selected == "All Time":
             st.session_state[sk_start] = date(2020, 1, 1)
-            st.session_state[sk_end] = date.today()
+            st.session_state[sk_end] = today_val
 
-    with btn_cols[4]:
+    # Layout into 3 columns that stretch 100% of parent with zero gaps
+    cols = st.columns([1, 1.2, 1.2])
+
+    with cols[0]:
+        st.selectbox(
+            "Quick Range",
+            options=["Custom", "This Month", "Last 30 Days", "This Year", "All Time"],
+            key=q_key,
+            on_change=on_quick_select_change,
+        )
+
+    with cols[1]:
         start_date = st.date_input(
             "Start Date",
             value=st.session_state[sk_start],
             key=f"{key_prefix}_date_start_input",
         )
-    with btn_cols[5]:
+
+    with cols[2]:
         end_date = st.date_input(
             "End Date",
             value=st.session_state[sk_end],
@@ -414,8 +447,76 @@ def render_search_filter(df, table_name, key_prefix):
 
 # ─── 8. Export Buttons ────────────────────────────────────────────────
 
+import io
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+
+def df_to_styled_excel(df, sheet_name="Data"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet_name[:30] # Excel limit is 30 chars
+    ws.views.sheetView[0].showGridLines = True
+    
+    # Style variables
+    font_family = "Segoe UI"
+    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid") # Navy Blue
+    header_font = Font(name=font_family, size=11, bold=True, color="FFFFFF")
+    data_font = Font(name=font_family, size=10)
+    
+    zebra_fill = PatternFill(start_color="F2F5F8", end_color="F2F5F8", fill_type="solid")
+    thin_side = Side(border_style="thin", color="D9D9D9")
+    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+    
+    # Write headers
+    headers = list(df.columns)
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center" if "ID" in h or h in ["Date", "Status"] else "left", vertical="center")
+        cell.border = thin_border
+        
+    # Write data
+    for row_idx, row in enumerate(df.itertuples(index=False), 2):
+        row_fill = zebra_fill if row_idx % 2 == 1 else None
+        for col_idx, val in enumerate(row, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.font = data_font
+            cell.border = thin_border
+            if row_fill:
+                cell.fill = row_fill
+                
+            # Formats & alignments
+            col_name = headers[col_idx-1]
+            if isinstance(val, (int, float)):
+                cell.alignment = Alignment(horizontal="right", vertical="center")
+                if "Total" in col_name or "Amount" in col_name or "Price" in col_name:
+                    cell.number_format = "₹#,##0.00"
+                else:
+                    cell.number_format = "#,##0"
+            elif col_name in ["Order_ID", "Payment_ID", "Expense_ID", "Date", "Status", "Weight"]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+                
+    # Auto-width
+    for col in range(1, len(headers) + 1):
+        col_letter = get_column_letter(col)
+        max_len = 0
+        for cell in ws[col_letter]:
+            val_str = str(cell.value or '')
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        
+    # Save to stream
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
 def render_export_buttons(df, table_name):
-    """Render a CSV download button for a DataFrame.
+    """Render styled Excel and CSV download buttons side-by-side.
 
     Parameters
     ----------
@@ -428,12 +529,29 @@ def render_export_buttons(df, table_name):
         st.info("No data to export.")
         return
 
+    col1, col2 = st.columns(2)
+
+    # Excel Export (Premium format)
+    try:
+        excel_data = df_to_styled_excel(df, table_name)
+        col1.download_button(
+            label=f"🟢 Download {table_name} as Excel (XLSX)",
+            data=excel_data,
+            file_name=f"{table_name.lower()}_export.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"excel_{table_name.lower()}",
+        )
+    except Exception as e:
+        col1.error(f"Excel export failed: {e}")
+
+    # CSV Export
     csv_data = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
+    col2.download_button(
         label=f"📥 Download {table_name} as CSV",
         data=csv_data,
         file_name=f"{table_name.lower()}_export.csv",
         mime="text/csv",
+        key=f"csv_{table_name.lower()}",
     )
 
 

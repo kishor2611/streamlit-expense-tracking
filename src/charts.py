@@ -1,3 +1,4 @@
+import typing
 """
 Charts module for the Business Dashboard.
 Builds all Plotly visualizations with a consistent dark theme.
@@ -14,27 +15,36 @@ from config import CHART_COLORS, CHART_TEMPLATE
 # ─── Helper ──────────────────────────────────────────────────────────
 
 
-def _apply_common_style(fig: go.Figure, title: str | None = None) -> go.Figure:
-    """Apply the shared dark-theme layout to every chart."""
+def _apply_common_style(fig: go.Figure, title: typing.Optional[str] = None) -> go.Figure:
+    """Apply the shared light-theme layout to every chart."""
     fig.update_layout(
-        template=CHART_TEMPLATE,
-        title=title,
+        template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif"),
-        margin=dict(l=20, r=20, t=40, b=20),
+        font=dict(family="Inter, sans-serif", color="#4D2B12"),
+        margin=dict(l=20, r=20, t=50, b=50),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
+            yanchor="top",
+            y=-0.15,
+            xanchor="center",
+            x=0.5,
+            font=dict(color="#4D2B12"),
         ),
     )
+    if title:
+        fig.update_layout(
+            title=dict(
+                text=f"<b>{title}</b>",
+                font=dict(family="Playfair Display, serif", size=16, color="#4D2B12")
+            )
+        )
+    fig.update_xaxes(title_font=dict(color="#4D2B12"), tickfont=dict(color="#4D2B12"), gridcolor="rgba(0,0,0,0.05)")
+    fig.update_yaxes(title_font=dict(color="#4D2B12"), tickfont=dict(color="#4D2B12"), gridcolor="rgba(0,0,0,0.05)")
     return fig
 
 
-def _is_valid(df: pd.DataFrame, required_cols: list[str] | None = None) -> bool:
+def _is_valid(df: pd.DataFrame, required_cols: typing.Optional[typing.List[str]] = None) -> bool:
     """Return True when *df* is a non-empty DataFrame with all required columns."""
     if df is None or not isinstance(df, pd.DataFrame) or df.empty:
         return False
@@ -46,7 +56,7 @@ def _is_valid(df: pd.DataFrame, required_cols: list[str] | None = None) -> bool:
 # ─── 1. Expenses Donut Chart ────────────────────────────────────────
 
 
-def build_expense_pie(df_expenses: pd.DataFrame) -> go.Figure | None:
+def build_expense_pie(df_expenses: pd.DataFrame) -> typing.Optional[go.Figure]:
     """Donut chart of expenses grouped by Category.
 
     Uses columns: ``Category``, ``Amount``.
@@ -82,7 +92,7 @@ def build_expense_pie(df_expenses: pd.DataFrame) -> go.Figure | None:
 # ─── 2. Sales Volume Bar Chart ──────────────────────────────────────
 
 
-def build_sales_bar(df_orders: pd.DataFrame) -> go.Figure | None:
+def build_sales_bar(df_orders: pd.DataFrame) -> typing.Optional[go.Figure]:
     """Horizontal bar chart of sales volume by Product.
 
     Groups by ``Product``, sums ``Quantity``.
@@ -125,7 +135,7 @@ def build_sales_bar(df_orders: pd.DataFrame) -> go.Figure | None:
 def build_revenue_expense_trend(
     df_payments: pd.DataFrame,
     df_expenses: pd.DataFrame,
-) -> go.Figure | None:
+) -> typing.Optional[go.Figure]:
     """Line chart showing monthly revenue vs expenses.
 
     Parses the ``Date`` column in both DataFrames and groups by year-month.
@@ -192,13 +202,32 @@ def build_revenue_expense_trend(
     )
 
     _apply_common_style(fig, title="Revenue vs Expenses Trend")
+
+    # Override margin and legend positions specifically for this chart to prevent overlap
+    fig.update_layout(
+        title=dict(
+            text="<b>Revenue vs Expenses Trend</b>",
+            y=0.98,
+            x=0.5,
+            xanchor="center",
+            yanchor="top"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=120, b=60, l=60, r=60)
+    )
     return fig
 
 
 # ─── 4. Payment Source Breakdown ─────────────────────────────────────
 
 
-def build_payment_source_pie(df_payments: pd.DataFrame) -> go.Figure | None:
+def build_payment_source_pie(df_payments: pd.DataFrame) -> typing.Optional[go.Figure]:
     """Donut chart of payment sources.
 
     Groups by ``Source``, sums ``Amount``.
@@ -243,7 +272,7 @@ _FUNNEL_COLORS = {
 }
 
 
-def build_order_pipeline(df_orders: pd.DataFrame) -> go.Figure | None:
+def build_order_pipeline(df_orders: pd.DataFrame) -> typing.Optional[go.Figure]:
     """Funnel chart showing order-status distribution.
 
     Uses column: ``Status``.
@@ -276,7 +305,7 @@ def build_order_pipeline(df_orders: pd.DataFrame) -> go.Figure | None:
 # ─── 6. Monthly P&L Bar Chart ───────────────────────────────────────
 
 
-def build_monthly_pnl_chart(df_pnl: pd.DataFrame) -> go.Figure | None:
+def build_monthly_pnl_chart(df_pnl: pd.DataFrame) -> typing.Optional[go.Figure]:
     """Grouped bar chart for monthly P&L with a Net Profit line overlay.
 
     Expected columns: ``Month``, ``Revenue``, ``Expenses``, ``Net_Profit``.
@@ -331,13 +360,32 @@ def build_monthly_pnl_chart(df_pnl: pd.DataFrame) -> go.Figure | None:
     )
 
     _apply_common_style(fig, title="Monthly Profit & Loss")
+
+    # Override margin and legend positions specifically for this chart to prevent overlap
+    fig.update_layout(
+        title=dict(
+            text="<b>Monthly Profit & Loss</b>",
+            y=0.98,
+            x=0.5,
+            xanchor="center",
+            yanchor="top"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=120, b=60, l=60, r=60)
+    )
     return fig
 
 
 # ─── 7. Product Performance Chart ───────────────────────────────────
 
 
-def build_product_performance(df_product_perf: pd.DataFrame) -> go.Figure | None:
+def build_product_performance(df_product_perf: pd.DataFrame) -> typing.Optional[go.Figure]:
     """Combined bar + line chart with dual y-axes.
 
     Bars represent ``Units_Sold`` (left axis) and a line shows ``Revenue``
@@ -382,4 +430,80 @@ def build_product_performance(df_product_perf: pd.DataFrame) -> go.Figure | None
     fig.update_layout(hovermode="x unified")
 
     _apply_common_style(fig, title="Product Performance")
+
+    # Override margin and legend positions specifically for this chart to prevent rotated labels overlapping the legend
+    fig.update_layout(
+        title=dict(
+            text="<b>Product Performance</b>",
+            y=0.98,
+            x=0.5,
+            xanchor="center",
+            yanchor="top"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=120, b=120, l=60, r=60)
+    )
     return fig
+
+
+# ─── 8. Expense Breakdown Trend ───────────────────────────────────────
+
+def build_expense_trend(df_expenses: pd.DataFrame) -> typing.Optional[go.Figure]:
+    """Stacked bar chart showing monthly expense breakdown by Category.
+
+    Expected columns: ``Date``, ``Category``, ``Amount``.
+    """
+    if not _is_valid(df_expenses, ["Date", "Category", "Amount"]):
+        return None
+
+    exp = df_expenses.copy()
+    exp["Date"] = pd.to_datetime(exp["Date"], dayfirst=True, errors="coerce")
+    exp = exp.dropna(subset=["Date"])
+    exp["Month"] = exp["Date"].dt.to_period("M").astype(str)
+
+    grouped = exp.groupby(["Month", "Category"], as_index=False)["Amount"].sum()
+    grouped.sort_values("Month", inplace=True)
+
+    fig = px.bar(
+        grouped,
+        x="Month",
+        y="Amount",
+        color="Category",
+        barmode="stack",
+        color_discrete_sequence=CHART_COLORS,
+    )
+
+    fig.update_layout(
+        xaxis_title="Month",
+        yaxis_title="Amount (₹)",
+        hovermode="x unified",
+    )
+
+    _apply_common_style(fig, title="Monthly Expense Breakdown")
+
+    # Override margin and legend positions specifically for this chart to prevent overlap
+    fig.update_layout(
+        title=dict(
+            text="<b>Monthly Expense Breakdown</b>",
+            y=0.98,
+            x=0.5,
+            xanchor="center",
+            yanchor="top"
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=120, b=60, l=60, r=60)
+    )
+    return fig
+

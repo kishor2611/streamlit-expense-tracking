@@ -29,7 +29,7 @@ from charts import (
     build_expense_pie, build_sales_bar,
     build_revenue_expense_trend, build_payment_source_pie,
     build_order_pipeline, build_monthly_pnl_chart,
-    build_product_performance,
+    build_product_performance, build_expense_trend,
 )
 from components import (
     render_sidebar, render_pipeline, render_top_clients,
@@ -98,18 +98,20 @@ with tab1:
     total_expenses = filt_expenses["Amount"].sum() if not filt_expenses.empty else 0.0
     net_profit = total_revenue - total_expenses
     total_orders = len(filt_orders) if not filt_orders.empty else 0
+    profit_margin = (net_profit / total_revenue * 100) if total_revenue > 0 else 0.0
 
     # Deltas vs previous period
     _, rev_delta, rev_pct = calculate_period_delta(df_payments, "Amount", "Date", start_date, end_date)
     _, exp_delta, exp_pct = calculate_period_delta(df_expenses, "Amount", "Date", start_date, end_date)
 
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
     kpi1.metric("💰 Cash Received", f"₹{total_revenue:,.2f}", delta=f"₹{rev_delta:,.0f} ({rev_pct})")
     kpi2.metric("💸 Total Expenses", f"₹{total_expenses:,.2f}", delta=f"₹{exp_delta:,.0f} ({exp_pct})", delta_color="inverse")
     kpi3.metric("🏦 Net Profit / Loss", f"₹{net_profit:,.2f}",
                 delta=f"₹{net_profit:,.0f}",
                 delta_color="normal" if net_profit >= 0 else "inverse")
-    kpi4.metric("📦 Total Orders", f"{total_orders:,}")
+    kpi4.metric("📈 Profit Margin", f"{profit_margin:.1f}%")
+    kpi5.metric("📦 Total Orders", f"{total_orders:,}")
 
     st.markdown("---")
 
@@ -156,6 +158,12 @@ with tab1:
 
     st.markdown("---")
 
+    # ── Expense Breakdown Chart ──
+    fig_exp_trend = build_expense_trend(filt_expenses)
+    if fig_exp_trend:
+        st.plotly_chart(fig_exp_trend, use_container_width=True)
+        st.markdown("---")
+
     # ── Top Clients ──
     section_header("Top Clients", "👥")
     render_top_clients(filt_orders, n=5)
@@ -170,9 +178,10 @@ with tab2:
         [
             "🛒 New Order",
             "✏️ Update Order",
-            "🗑️ Delete Record",
             "💳 Payment Received",
             "🧾 Business Expense",
+            "📦 Product Catalog",
+            "🗑️ Delete Record",
         ],
         horizontal=True,
     )
@@ -195,10 +204,17 @@ with tab2:
         if client == "":
             client = col1.text_input("Or enter a new client name", key="new_order_client_new")
 
+        # Look up latest address for returning client
+        default_address = ""
+        if client and not df_orders.empty and "Client_Name" in df_orders.columns:
+            client_data = df_orders[df_orders["Client_Name"] == client]
+            if not client_data.empty:
+                default_address = str(client_data.iloc[-1]["Address"])
+
         product = col2.selectbox("Product", list(price_dict.keys()), key="new_order_product")
         qty = col1.number_input("Quantity", min_value=1, step=1, key="new_order_qty")
         order_date = col2.date_input("Order Date", value=date.today(), key="new_order_date")
-        address = st.text_area("Delivery Address", key="new_order_address")
+        address = st.text_area("Delivery Address", value=default_address, key="new_order_address")
         remarks_col, status_col = st.columns(2)
         notes = remarks_col.text_input("Notes / Remarks (optional)", key="new_order_notes")
         status = status_col.selectbox("Status", ORDER_STATUSES, key="new_order_status")
@@ -229,7 +245,18 @@ with tab2:
         else:
             order_ids = df_orders["Order_ID"].tolist()
             order_ids.reverse()
-            selected_id = st.selectbox("Select Order to Update", order_ids, key="update_order_select")
+            
+            # Create a dictionary of order descriptions for easy identification
+            order_desc = {}
+            for _, row in df_orders.iterrows():
+                order_desc[row["Order_ID"]] = f"{row['Order_ID']} - {row['Client_Name']} - {row['Product']} - ₹{row['Order_Total']:,.2f}"
+            
+            selected_id = st.selectbox(
+                "Select Order to Update", 
+                order_ids, 
+                format_func=lambda x: order_desc.get(x, x),
+                key="update_order_select"
+            )
 
             current_data = df_orders[df_orders["Order_ID"] == selected_id].iloc[0]
             sheet_row_index = df_orders[df_orders["Order_ID"] == selected_id].index[0] + 2
@@ -267,12 +294,65 @@ with tab2:
                     st.rerun()
 
     # ─────────────────────────── Delete Record ───────────────────────
+    elif entry_type == "📦 Product Catalog":
+        st.subheader("Manage Product Catalog")
+        prod_action = st.radio("Action", ["Add Product", "Update Product"], horizontal=True, key="prod_action")
+        
+        if prod_action == "Add Product":
+            with st.form("add_product_form", clear_on_submit=True):
+                p_name = st.text_input("Product Name (e.g. Mango Pickle)", key="add_p_name")
+                p_weight = st.text_input("Weight / Pack Size (e.g. 250g, 500ml)", key="add_p_weight")
+                p_price = st.number_input("Selling Price (₹)", min_value=0.0, step=5.0, key="add_p_price")
+                
+                submitted = st.form_submit_button("💾 Add Product", type="primary")
+                if submitted:
+                    if not p_name or not p_weight:
+                        st.error("⚠️ Product Name and Weight are required.")
+                    elif p_price <= 0:
+                        st.error("⚠️ Price must be greater than zero.")
+                    else:
+                        from database import add_product
+                        with st.spinner("Adding product..."):
+                            add_product(worksheets["products"], p_name, p_weight, p_price)
+                            clear_cache()
+                        st.toast(f"✅ Product '{p_name}' added successfully!", icon="🎉")
+                        st.rerun()
+                        
+        elif prod_action == "Update Product":
+            if df_products.empty:
+                st.info("No products in catalog to update.")
+            else:
+                prod_options = [f"{row['Product_Name']} ({row['Weight']})" for _, row in df_products.iterrows()]
+                selected_prod_idx = st.selectbox("Select Product to Update", range(len(prod_options)), format_func=lambda x: prod_options[x], key="update_p_select")
+                
+                current_prod = df_products.iloc[selected_prod_idx]
+                sheet_row_index = selected_prod_idx + 2
+                
+                with st.form("update_product_form"):
+                    p_name = st.text_input("Product Name", value=str(current_prod["Product_Name"]), key="up_p_name")
+                    p_weight = st.text_input("Weight / Pack Size", value=str(current_prod["Weight"]), key="up_p_weight")
+                    p_price = st.number_input("Selling Price (₹)", min_value=0.0, value=float(str(current_prod["Price"]).replace("₹", "").replace(",", "").strip()), step=5.0, key="up_p_price")
+                    
+                    submitted = st.form_submit_button("💾 Save Product Changes", type="primary")
+                    if submitted:
+                        if not p_name or not p_weight:
+                            st.error("⚠️ Product Name and Weight are required.")
+                        elif p_price <= 0:
+                            st.error("⚠️ Price must be greater than zero.")
+                        else:
+                            from database import update_product
+                            with st.spinner("Updating product..."):
+                                update_product(worksheets["products"], sheet_row_index, p_name, p_weight, p_price)
+                                clear_cache()
+                            st.toast(f"✅ Product '{p_name}' updated successfully!", icon="✏️")
+                            st.rerun()
+
     elif entry_type == "🗑️ Delete Record":
         st.subheader("Delete a Record")
 
         delete_target = st.selectbox(
             "What do you want to delete?",
-            ["Order", "Payment", "Expense"],
+            ["Order", "Payment", "Expense", "Product"],
             key="delete_target",
         )
 
@@ -300,7 +380,7 @@ with tab2:
                     st.write(f"**Date:** {row_data['Date']} | **Status:** {row_data['Status']}")
 
                 st.warning("⚠️ This action is **permanent** and cannot be undone.")
-                if st.button("🗑️ Confirm Delete Order", key="confirm_del_order"):
+                if st.button("🗑️ Confirm Delete Order", type="primary", key="confirm_del_order"):
                     with st.spinner("Deleting…"):
                         delete_row(worksheets["orders"], sheet_row)
                         clear_cache()
@@ -337,7 +417,7 @@ with tab2:
                     det_c3.write(f"**Source:** {row_data.get('Source', row_data.get('Payment_Source', row_data.get('Mode', 'N/A')))}")
 
                 st.warning("⚠️ This action is **permanent** and cannot be undone.")
-                if st.button("🗑️ Confirm Delete Payment", key="confirm_del_pay"):
+                if st.button("🗑️ Confirm Delete Payment", type="primary", key="confirm_del_pay"):
                     with st.spinner("Deleting…"):
                         delete_row(worksheets["payments"], sheet_row)
                         clear_cache()
@@ -369,11 +449,29 @@ with tab2:
                     det_c3.write(f"**Amount:** ₹{row_data.get('Amount', 0.0):,.2f}")
 
                 st.warning("⚠️ This action is **permanent** and cannot be undone.")
-                if st.button("🗑️ Confirm Delete Expense", key="confirm_del_exp"):
+                if st.button("🗑️ Confirm Delete Expense", type="primary", key="confirm_del_exp"):
                     with st.spinner("Deleting…"):
                         delete_row(worksheets["expenses"], sheet_row)
                         clear_cache()
                     st.toast(f"🗑️ Expense {sel_id} deleted.", icon="🗑️")
+                    st.rerun()
+
+        elif delete_target == "Product":
+            if df_products.empty:
+                st.info("No products to delete.")
+            else:
+                prod_options = [f"{row['Product_Name']} ({row['Weight']}) - ₹{row['Price']}" for _, row in df_products.iterrows()]
+                selected_idx = st.selectbox("Select Product to Delete", range(len(prod_options)), format_func=lambda x: prod_options[x], key="del_p_select")
+                
+                row_data = df_products.iloc[selected_idx]
+                sheet_row = selected_idx + 2
+                
+                st.warning("⚠️ Deleting a product will remove it from the catalog. Existing orders using this product will remain unchanged, but its unit price will no longer be available for new orders.")
+                if st.button("🗑️ Confirm Delete Product", type="primary", key="confirm_del_product"):
+                    with st.spinner("Deleting..."):
+                        delete_row(worksheets["products"], sheet_row)
+                        clear_cache()
+                    st.toast(f"🗑️ Product '{row_data['Product_Name']}' deleted.", icon="🗑️")
                     st.rerun()
 
     # ─────────────────────────── Payment ─────────────────────────────
@@ -387,7 +485,17 @@ with tab2:
             if not df_orders.empty:
                 order_options = df_orders["Order_ID"].tolist()
                 order_options.reverse()
-                order_ref = p_col1.selectbox("Order ID", order_options)
+                
+                # Create a dictionary of order descriptions for easy identification
+                order_desc = {}
+                for _, row in df_orders.iterrows():
+                    order_desc[row["Order_ID"]] = f"{row['Order_ID']} - {row['Client_Name']} - {row['Product']} - ₹{row['Order_Total']:,.2f}"
+                
+                order_ref = p_col1.selectbox(
+                    "Order ID", 
+                    order_options,
+                    format_func=lambda x: order_desc.get(x, x)
+                )
 
                 # Show remaining balance for selected order
                 selected_order = df_orders[df_orders["Order_ID"] == order_ref].iloc[0]
@@ -395,11 +503,13 @@ with tab2:
                 paid_so_far = df_payments[df_payments["Order_ID"] == order_ref]["Amount"].sum() if not df_payments.empty else 0.0
                 remaining = order_total - paid_so_far
                 st.info(f"**Order Total:** ₹{order_total:,.2f} | **Paid so far:** ₹{paid_so_far:,.2f} | **Remaining:** ₹{remaining:,.2f}")
+                default_amt = float(remaining)
             else:
                 order_ref = p_col1.text_input("Order ID (e.g., ORD-100)")
                 remaining = float("inf")
+                default_amt = 0.0
 
-            amt = p_col2.number_input("Amount Received (₹)", min_value=0.0, step=10.0)
+            amt = p_col2.number_input("Amount Received (₹)", min_value=0.0, step=10.0, value=default_amt)
             pay_date = p_col1.date_input("Payment Date", value=date.today())
             source = p_col2.selectbox("Payment Source", PAYMENT_SOURCES)
 
@@ -603,9 +713,9 @@ with tab4:
                 column_config={
                     "Client_Name": st.column_config.TextColumn("Client"),
                     "Total_Orders": st.column_config.NumberColumn("Orders"),
-                    "Total_Order_Value": st.column_config.NumberColumn("Order Value", format="₹%,.2f"),
-                    "Total_Paid": st.column_config.NumberColumn("Paid", format="₹%,.2f"),
-                    "Balance": st.column_config.NumberColumn("Balance Due", format="₹%,.2f"),
+                    "Total_Order_Value": st.column_config.NumberColumn("Order Value", format="₹ %.2f"),
+                    "Total_Paid": st.column_config.NumberColumn("Paid", format="₹ %.2f"),
+                    "Balance": st.column_config.NumberColumn("Balance Due", format="₹ %.2f"),
                 },
             )
 
@@ -636,9 +746,9 @@ with tab4:
                     "Order_ID": st.column_config.TextColumn("Order"),
                     "Client_Name": st.column_config.TextColumn("Client"),
                     "Product": st.column_config.TextColumn("Product"),
-                    "Order_Total": st.column_config.NumberColumn("Order Total", format="₹%,.2f"),
-                    "Paid": st.column_config.NumberColumn("Paid", format="₹%,.2f"),
-                    "Balance": st.column_config.NumberColumn("Balance Due", format="₹%,.2f"),
+                    "Order_Total": st.column_config.NumberColumn("Order Total", format="₹ %.2f"),
+                    "Paid": st.column_config.NumberColumn("Paid", format="₹ %.2f"),
+                    "Balance": st.column_config.NumberColumn("Balance Due", format="₹ %.2f"),
                 },
             )
 

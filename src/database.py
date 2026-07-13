@@ -14,6 +14,7 @@ Worksheet Column Structures:
     Payments: Payment_ID, Date, Order_ID, Amount, Source
 """
 
+from __future__ import annotations
 import streamlit as st
 import gspread
 import pandas as pd
@@ -231,6 +232,39 @@ def delete_row(ws, sheet_row_index):
         sheet_row_index (int): 1-indexed row number to delete.
     """
     ws.delete_rows(int(sheet_row_index))
+
+
+def add_product(ws, name, weight, price):
+    """Append a new product row to the Products worksheet.
+
+    Args:
+        ws (gspread.Worksheet): The Products worksheet object.
+        name (str): Product Name.
+        weight (str): Weight (e.g. '100g', '500g').
+        price (float): Price of the product.
+    """
+    ws.append_row(
+        [name, weight, price],
+        value_input_option="USER_ENTERED",
+    )
+
+
+def update_product(ws, sheet_row_index, name, weight, price):
+    """Update an existing product row in-place.
+
+    Args:
+        ws (gspread.Worksheet): The Products worksheet object.
+        sheet_row_index (int): 1-indexed row number to update.
+        name (str): Updated product name.
+        weight (str): Updated weight.
+        price (float): Updated price.
+    """
+    cell_range = f"A{sheet_row_index}:C{sheet_row_index}"
+    ws.update(
+        cell_range,
+        [[name, weight, price]],
+        value_input_option="USER_ENTERED",
+    )
 
 
 def add_payment(ws, payment_id, date_str, order_ref, amount, source):
