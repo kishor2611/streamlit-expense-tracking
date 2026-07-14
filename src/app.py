@@ -262,18 +262,18 @@ with tab2:
             sheet_row_index = df_orders[df_orders["Order_ID"] == selected_id].index[0] + 2
 
             col1, col2 = st.columns(2)
-            client = col1.text_input("Client Name", value=str(current_data["Client_Name"]), key="update_client")
+            client = col1.text_input("Client Name", value=str(current_data["Client_Name"]), key=f"update_client_{selected_id}")
 
             prod_list = list(price_dict.keys())
             current_prod = str(current_data["Product"])
             default_prod_idx = prod_list.index(current_prod) if current_prod in prod_list else 0
-            product = col2.selectbox("Product", prod_list, index=default_prod_idx, key="update_product")
+            product = col2.selectbox("Product", prod_list, index=default_prod_idx, key=f"update_product_{selected_id}")
 
-            qty = col1.number_input("Quantity", min_value=1, step=1, value=int(current_data["Quantity"]), key="update_qty")
-            address = st.text_area("Delivery Address", value=str(current_data["Address"]), key="update_address")
+            qty = col1.number_input("Quantity", min_value=1, step=1, value=int(current_data["Quantity"]), key=f"update_qty_{selected_id}")
+            address = st.text_area("Delivery Address", value=str(current_data["Address"]), key=f"update_address_{selected_id}")
 
             default_status_idx = ORDER_STATUSES.index(str(current_data["Status"])) if str(current_data["Status"]) in ORDER_STATUSES else 0
-            status = st.selectbox("Status", ORDER_STATUSES, index=default_status_idx, key="update_status")
+            status = st.selectbox("Status", ORDER_STATUSES, index=default_status_idx, key=f"update_status_{selected_id}")
 
             unit_price = price_dict.get(product, 0.0)
             auto_total = unit_price * qty
@@ -328,10 +328,10 @@ with tab2:
                 current_prod = df_products.iloc[selected_prod_idx]
                 sheet_row_index = selected_prod_idx + 2
                 
-                with st.form("update_product_form"):
-                    p_name = st.text_input("Product Name", value=str(current_prod["Product_Name"]), key="up_p_name")
-                    p_weight = st.text_input("Weight / Pack Size", value=str(current_prod["Weight"]), key="up_p_weight")
-                    p_price = st.number_input("Selling Price (₹)", min_value=0.0, value=float(str(current_prod["Price"]).replace("₹", "").replace(",", "").strip()), step=5.0, key="up_p_price")
+                with st.form(f"update_product_form_{selected_prod_idx}"):
+                    p_name = st.text_input("Product Name", value=str(current_prod["Product_Name"]), key=f"up_p_name_{selected_prod_idx}")
+                    p_weight = st.text_input("Weight / Pack Size", value=str(current_prod["Weight"]), key=f"up_p_weight_{selected_prod_idx}")
+                    p_price = st.number_input("Selling Price (₹)", min_value=0.0, value=float(str(current_prod["Price"]).replace("₹", "").replace(",", "").strip()), step=5.0, key=f"up_p_price_{selected_prod_idx}")
                     
                     submitted = st.form_submit_button("💾 Save Product Changes", type="primary")
                     if submitted:
