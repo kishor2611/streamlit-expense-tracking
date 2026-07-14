@@ -476,61 +476,61 @@ with tab2:
 
     # ─────────────────────────── Payment ─────────────────────────────
     elif entry_type == "💳 Payment Received":
-        with st.form("payment_form", clear_on_submit=True):
-            st.subheader("Log a Payment")
+        st.subheader("Log a Payment")
 
-            p_col1, p_col2 = st.columns(2)
+        p_col1, p_col2 = st.columns(2)
 
-            # Dropdown of existing orders instead of free text
-            if not df_orders.empty:
-                order_options = df_orders["Order_ID"].tolist()
-                order_options.reverse()
-                
-                # Create a dictionary of order descriptions for easy identification
-                order_desc = {}
-                for _, row in df_orders.iterrows():
-                    order_desc[row["Order_ID"]] = f"{row['Order_ID']} - {row['Client_Name']} - {row['Product']} - ₹{row['Order_Total']:,.2f}"
-                
-                order_ref = p_col1.selectbox(
-                    "Order ID", 
-                    order_options,
-                    format_func=lambda x: order_desc.get(x, x)
-                )
+        # Dropdown of existing orders instead of free text
+        if not df_orders.empty:
+            order_options = df_orders["Order_ID"].tolist()
+            order_options.reverse()
+            
+            # Create a dictionary of order descriptions for easy identification
+            order_desc = {}
+            for _, row in df_orders.iterrows():
+                order_desc[row["Order_ID"]] = f"{row['Order_ID']} - {row['Client_Name']} - {row['Product']} - ₹{row['Order_Total']:,.2f}"
+            
+            order_ref = p_col1.selectbox(
+                "Order ID", 
+                order_options,
+                format_func=lambda x: order_desc.get(x, x),
+                key="payment_order_select"
+            )
 
-                # Show remaining balance for selected order
-                selected_order = df_orders[df_orders["Order_ID"] == order_ref].iloc[0]
-                order_total = float(selected_order["Order_Total"])
-                paid_so_far = df_payments[df_payments["Order_ID"] == order_ref]["Amount"].sum() if not df_payments.empty else 0.0
-                remaining = order_total - paid_so_far
-                st.info(f"**Order Total:** ₹{order_total:,.2f} | **Paid so far:** ₹{paid_so_far:,.2f} | **Remaining:** ₹{remaining:,.2f}")
-                default_amt = float(remaining)
+            # Show remaining balance for selected order
+            selected_order = df_orders[df_orders["Order_ID"] == order_ref].iloc[0]
+            order_total = float(selected_order["Order_Total"])
+            paid_so_far = df_payments[df_payments["Order_ID"] == order_ref]["Amount"].sum() if not df_payments.empty else 0.0
+            remaining = order_total - paid_so_far
+            st.info(f"**Order Total:** ₹{order_total:,.2f} | **Paid so far:** ₹{paid_so_far:,.2f} | **Remaining:** ₹{remaining:,.2f}")
+            default_amt = float(remaining)
+        else:
+            order_ref = p_col1.text_input("Order ID (e.g., ORD-100)", key="payment_order_text")
+            remaining = float("inf")
+            default_amt = 0.0
+
+        # We key the remaining inputs based on the selected order reference so they auto-update dynamically when order changes
+        amt = p_col2.number_input("Amount Received (₹)", min_value=0.0, step=10.0, value=default_amt, key=f"pay_amount_{order_ref}")
+        pay_date = p_col1.date_input("Payment Date", value=date.today(), key=f"pay_date_{order_ref}")
+        source = p_col2.selectbox("Payment Source", PAYMENT_SOURCES, key=f"pay_source_{order_ref}")
+
+        if st.button("💾 Save Payment", type="primary", key="save_payment_btn"):
+            if amt <= 0:
+                st.error("⚠️ Please enter a valid amount.")
+            elif amt > remaining and remaining != float("inf"):
+                st.warning(f"⚠️ Payment (₹{amt:,.2f}) exceeds the remaining balance (₹{remaining:,.2f}). Are you sure?")
+                # Still save it — it's a warning, not a block
+                new_id = generate_id(PAYMENT_ID_PREFIX, df_payments)
+                add_payment(worksheets["payments"], new_id, pay_date.strftime("%Y-%m-%d"), order_ref, amt, source)
+                clear_cache()
+                st.toast("✅ Payment saved!", icon="💳")
+                st.rerun()
             else:
-                order_ref = p_col1.text_input("Order ID (e.g., ORD-100)")
-                remaining = float("inf")
-                default_amt = 0.0
-
-            amt = p_col2.number_input("Amount Received (₹)", min_value=0.0, step=10.0, value=default_amt)
-            pay_date = p_col1.date_input("Payment Date", value=date.today())
-            source = p_col2.selectbox("Payment Source", PAYMENT_SOURCES)
-
-            submitted = st.form_submit_button("💾 Save Payment", type="primary")
-            if submitted:
-                if amt <= 0:
-                    st.error("⚠️ Please enter a valid amount.")
-                elif amt > remaining and remaining != float("inf"):
-                    st.warning(f"⚠️ Payment (₹{amt:,.2f}) exceeds the remaining balance (₹{remaining:,.2f}). Are you sure?")
-                    # Still save it — it's a warning, not a block
-                    new_id = generate_id(PAYMENT_ID_PREFIX, df_payments)
-                    add_payment(worksheets["payments"], new_id, pay_date.strftime("%Y-%m-%d"), order_ref, amt, source)
-                    clear_cache()
-                    st.toast("✅ Payment saved!", icon="💳")
-                    st.rerun()
-                else:
-                    new_id = generate_id(PAYMENT_ID_PREFIX, df_payments)
-                    add_payment(worksheets["payments"], new_id, pay_date.strftime("%Y-%m-%d"), order_ref, amt, source)
-                    clear_cache()
-                    st.toast("✅ Payment saved!", icon="💳")
-                    st.rerun()
+                new_id = generate_id(PAYMENT_ID_PREFIX, df_payments)
+                add_payment(worksheets["payments"], new_id, pay_date.strftime("%Y-%m-%d"), order_ref, amt, source)
+                clear_cache()
+                st.toast("✅ Payment saved!", icon="💳")
+                st.rerun()
 
     # ─────────────────────────── Expense ──────────────────────────────
     elif entry_type == "🧾 Business Expense":
