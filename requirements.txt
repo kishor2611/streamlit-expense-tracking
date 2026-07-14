@@ -9,3 +9,4 @@ gspread==5.12.4
 pandas
 plotly
 openpyxl
+numpy<2
